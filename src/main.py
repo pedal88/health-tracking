@@ -22,17 +22,26 @@ def main():
             pass # Not required in production/CI context where env vars are injected
 
         # Validate required environment variables
-        required_vars = ["GOOGLE_SERVICE_ACCOUNT_JSON", "GARMIN_EMAIL", "GARMIN_PASSWORD", "GOOGLE_SHEET_ID"]
+        required_vars = ["GARMIN_EMAIL", "GARMIN_PASSWORD", "GOOGLE_SHEET_ID"]
         missing_vars = [var for var in required_vars if not os.getenv(var)]
         if missing_vars:
             logger.error(f"Missing environment variables: {', '.join(missing_vars)}")
             sys.exit(1)
 
         creds_json = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
-        try:
-            creds = json.loads(creds_json)
-        except json.JSONDecodeError:
-             logger.error("Invalid JSON in GOOGLE_SERVICE_ACCOUNT_JSON")
+        if creds_json:
+            try:
+                creds = json.loads(creds_json)
+            except json.JSONDecodeError:
+                logger.error("Invalid JSON in GOOGLE_SERVICE_ACCOUNT_JSON")
+                sys.exit(1)
+        # Fallback to local file for development
+        elif os.path.exists("service_account.json"):
+            logger.info("Using service_account.json file")
+            with open("service_account.json", "r") as f:
+                creds = json.load(f)
+        else:
+             logger.error("No credentials found. Set GOOGLE_SERVICE_ACCOUNT_JSON or create service_account.json")
              sys.exit(1)
         
         garmin = GarminProvider(os.getenv("GARMIN_EMAIL"), os.getenv("GARMIN_PASSWORD"))

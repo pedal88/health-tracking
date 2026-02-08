@@ -42,7 +42,7 @@ class GarminProvider:
             weight.get("totalWeight"),                          # Weight
             training.get("fitnessAge"),                         # Fitness Age
             training.get("trainingStatus"),                     # Training Status
-            sleep_dto.get("sleepScore"),                        # Sleep Score
+            sleep_dto.get("sleepScore") or sleep_dto.get("sleepScores", {}).get("overall", {}).get("value"), # Sleep Score
             round(sleep_dto.get("sleepTimeSeconds", 0)/3600, 2), # Duration (Hours)
             sleep_dto.get("deepSleepSeconds"),                  # Deep
             sleep_dto.get("lightSleepSeconds"),                 # Light
