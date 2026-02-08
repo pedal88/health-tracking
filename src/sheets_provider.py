@@ -10,14 +10,22 @@ class SheetsProvider:
         self.wks = self.sh.get_worksheet(0)
 
     def append_metrics(self, data_row: List[Any]):
-        # Check if sheet is empty (no headers) and add them if needed
-        if not self.wks.get_values("A1"):
+        # Check if sheet is empty OR if the first cell looks like data (e.g. a date) instead of a header
+        first_cell = self.wks.acell("A1").value
+        
+        # If empty or starts with "20" (assuming date format YYYY-MM-DD), likely missing headers
+        if not first_cell or (first_cell and first_cell.startswith("20")):
             headers = [
                 "Date", "Body Battery", "BB High/Low", "Exercise?", "Type", "HRV (Last Night)", 
                 "Resting Heart Rate", "Stress Avg", "Respiration Avg", "SpO2 Avg", "Weight", 
                 "Fitness Age", "Training Status", "Sleep Score", "Sleep Hours", "Deep Sleep (s)", 
                 "Light Sleep (s)", "REM Sleep (s)", "Awake (s)"
             ]
-            self.wks.append_row(headers, value_input_option="USER_ENTERED")
+            if not first_cell:
+                # Completely empty sheet
+                self.wks.append_row(headers, value_input_option="USER_ENTERED")
+            else:
+                # Data exists but no headers, insert at top
+                self.wks.insert_row(headers, index=1, value_input_option="USER_ENTERED")
             
         self.wks.append_row(data_row, value_input_option="USER_ENTERED")
