@@ -21,9 +21,24 @@ class GarminProvider:
         weight = self.client.get_body_composition(d_str)
         activities = self.client.get_activities(0, 1) # Get most recent
 
+        if not stats:
+            stats = {}
+        if not activities:
+            activities = []
+
         # Determine Exercise context
         last_act = activities[0] if activities else {}
         is_today = last_act.get("startTimeLocal", "").startswith(d_str)
+        
+        # Validate responses
+        if not sleep:
+            sleep = {}
+        if not hrv:
+            hrv = {}
+        if not training:
+            training = {}
+        if not weight:
+            weight = {}
         
         # Map raw data to your specific list
         sleep_dto = sleep.get("dailySleepDTO", {})
