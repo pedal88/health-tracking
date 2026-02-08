@@ -96,8 +96,8 @@ class GarminProvider:
                 # Convert 1770502398000 -> timestamp -> string
                 # Note: These are timestamps in ms. 
                 import datetime
-                start_ts = sleep_dto.get("sleepStartTimestampLocal") / 1000
-                end_ts = sleep_dto.get("sleepEndTimestampLocal") / 1000
+                start_ts = (sleep_dto.get("sleepStartTimestampLocal") or 0) / 1000
+                end_ts = (sleep_dto.get("sleepEndTimestampLocal") or 0) / 1000
                 sleep_start = datetime.datetime.fromtimestamp(start_ts).strftime('%H:%M')
                 sleep_end = datetime.datetime.fromtimestamp(end_ts).strftime('%H:%M')
         except:
@@ -118,7 +118,7 @@ class GarminProvider:
             fitness_age,                                        # Fitness Age
             training_status,                                    # Training Status
             sleep_dto.get("sleepScore") or sleep_dto.get("sleepScores", {}).get("overall", {}).get("value"), # Sleep Score
-            round(sleep_dto.get("sleepTimeSeconds", 0)/3600, 2), # Duration (Hours)
+            round((sleep_dto.get("sleepTimeSeconds") or 0)/3600, 2), # Duration (Hours)
             sleep_dto.get("deepSleepSeconds"),                  # Deep
             sleep_dto.get("lightSleepSeconds"),                 # Light
             sleep_dto.get("remSleepSeconds"),                   # REM
@@ -133,7 +133,7 @@ class GarminProvider:
             stats.get("bmrKilocalories"),                       # BMR Cals
             stats.get("totalKilocalories"),                     # Total Cals
             f"{stats.get('bodyBatteryChargedValue')}/{stats.get('bodyBatteryDrainedValue')}", # Body Battery (Charge/Drain)
-            f"{round(stats.get('lowStressDuration', 0)/60)}/{round(stats.get('mediumStressDuration', 0)/60)}/{round(stats.get('highStressDuration', 0)/60)}", # Stress Duration (Min)
+            f"{round((stats.get('lowStressDuration') or 0)/60)}/{round((stats.get('mediumStressDuration') or 0)/60)}/{round((stats.get('highStressDuration') or 0)/60)}", # Stress Duration (Min)
             sleep_start,                                        # Sleep Start
             sleep_end,                                          # Sleep End
             sleep_dto.get("restlessMomentsCount"),              # Restless Moments
