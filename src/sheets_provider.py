@@ -23,23 +23,23 @@ class SheetsProvider:
         ]
 
         # 1. Inspect Row 1 to see if headers exist
-        # We simply check if A1 is "Date". If not, we insert headers.
         try:
             a1_val = self.wks.acell("A1").value
         except:
             a1_val = ""
             
         if a1_val != "Date":
-            # Headers are missing or overwritten
-            print("Headers missing (A1 is not 'Date'), inserting...")
-            self.wks.insert_row(headers, index=1, value_input_option="USER_ENTERED")
-            # If the sheet was completely empty, we now have headers at 1.
-            # Next data should go to 2.
-            
+            print("Headers missing (A1 != 'Date'), writing headers to A1...")
+            # Use update to force write at A1. Must be list of lists.
+            self.wks.update("A1", [headers], value_input_option="USER_ENTERED")
+        
         # 2. Find next available row
-        # We rely on Column A (Date) being populated.
-        col_a = self.wks.col_values(1) # This now includes "Date" at A1
+        # We fetch column A again to be sure we have the latest state (including potentially just-written headers)
+        col_a = self.wks.col_values(1)
         next_row = len(col_a) + 1
         
-        # 3. Insert/Append at specific row to ensure alignment
-        self.wks.insert_row(data_row, index=next_row, value_input_option="USER_ENTERED")
+        # 3. Write data to the specific row range (e.g. "A5")
+        # This guarantees it starts at Column A, eliminating diagonal issues.
+        range_start = f"A{next_row}"
+        print(f"Appending data to {range_start}...")
+        self.wks.update(range_start, [data_row], value_input_option="USER_ENTERED")
