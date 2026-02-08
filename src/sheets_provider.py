@@ -19,7 +19,11 @@ class SheetsProvider:
                 "Date", "Body Battery", "BB High/Low", "Exercise?", "Type", "HRV (Last Night)", 
                 "Resting Heart Rate", "Stress Avg", "Respiration Avg", "SpO2 Avg", "Weight", 
                 "Fitness Age", "Training Status", "Sleep Score", "Sleep Hours", "Deep Sleep (s)", 
-                "Light Sleep (s)", "REM Sleep (s)", "Awake (s)"
+                "Light Sleep (s)", "REM Sleep (s)", "Awake (s)", "Steps", "Distance (m)", 
+                "Intensity Min (Mod)", "Intensity Min (Vig)", "Active Cals", "BMR Cals", "Total Cals", 
+                "Body Battery (Charge/Drain)", "Stress Duration (Low/Med/High)", "Sleep Start", 
+                "Sleep End", "Restless Moments", "HRV Status", "Respiration (High/Low)", "VO2 Max",
+                "Load Focus (Low/High/Anaerobic)"
             ]
             if not first_cell:
                 # Completely empty sheet
