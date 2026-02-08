@@ -28,18 +28,24 @@ class SheetsProvider:
         except:
             a1_val = ""
             
+        headers_written = False
         if a1_val != "Date":
-            print("Headers missing (A1 != 'Date'), writing headers to A1...")
-            # Use update to force write at A1. Must be list of lists.
+            logging.info("Headers missing (A1 != 'Date'), writing headers to A1...")
             self.wks.update("A1", [headers], value_input_option="USER_ENTERED")
+            headers_written = True
         
         # 2. Find next available row
-        # We fetch column A again to be sure we have the latest state (including potentially just-written headers)
         col_a = self.wks.col_values(1)
-        next_row = len(col_a) + 1
+        # FORCE consistency: if we just wrote headers, we have at least 1 row.
+        # The API might be stale and return 0.
+        current_rows = len(col_a)
+        if headers_written and current_rows == 0:
+            logging.info("API stale after header write, forcing next_row=2")
+            next_row = 2
+        else:
+            next_row = current_rows + 1
         
         # 3. Write data to the specific row range (e.g. "A5")
-        # This guarantees it starts at Column A, eliminating diagonal issues.
         range_start = f"A{next_row}"
-        print(f"Appending data to {range_start}...")
+        logging.info(f"Appending data to {range_start} (Row len: {len(data_row)})...")
         self.wks.update(range_start, [data_row], value_input_option="USER_ENTERED")
