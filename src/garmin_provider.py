@@ -40,6 +40,28 @@ class GarminProvider:
         if not weight:
             weight = {}
         
+        # 1. Get Fitness Age
+        fitness_age = None
+        try:
+            fa_data = self.client.get_fitnessage_data(d_str)
+            if fa_data:
+                fitness_age = fa_data.get("fitnessAge")
+        except Exception as e:
+            logger.debug(f"Failed to fetch fitness age: {e}")
+
+        # 2. Get Training Status (Deep Parse)
+        training_status = None
+        try:
+            # Structure: training -> mostRecentTrainingStatus -> latestTrainingStatusData -> {deviceId: { ... }}
+            ts_data = training.get("mostRecentTrainingStatus", {}).get("latestTrainingStatusData", {})
+            for device_id, device_data in ts_data.items():
+                # Prefer primary device or just take first one
+                if device_data.get("trainingStatusFeedbackPhrase"):
+                    training_status = device_data.get("trainingStatusFeedbackPhrase")
+                    break
+        except Exception as e:
+            logger.debug(f"Failed to parse training status: {e}")
+
         # Map raw data to your specific list
         sleep_dto = sleep.get("dailySleepDTO", {})
         
@@ -55,8 +77,8 @@ class GarminProvider:
             stats.get("avgWakingRespirationValue"),             # Respiration
             stats.get("avgOxygenSaturation"),                   # Pulse Ox (SpO2)
             weight.get("totalWeight"),                          # Weight
-            training.get("fitnessAge"),                         # Fitness Age
-            training.get("trainingStatus"),                     # Training Status
+            fitness_age,                                        # Fitness Age
+            training_status,                                    # Training Status
             sleep_dto.get("sleepScore") or sleep_dto.get("sleepScores", {}).get("overall", {}).get("value"), # Sleep Score
             round(sleep_dto.get("sleepTimeSeconds", 0)/3600, 2), # Duration (Hours)
             sleep_dto.get("deepSleepSeconds"),                  # Deep
