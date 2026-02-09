@@ -88,9 +88,9 @@ def main():
                 data = garmin.fetch_daily_row(current_date)
                 
                 # Check for critical data (Sleep Score)
-                # New Index: 15 is Sleep Score based on the provider list structure
-                # [Date, Worn, BB, BBH, BBL, Ex, Type, HRV, RHR, Stress, Resp, SpO2, Wgt, FA, TS, SS, ...]
-                if data[15] is None:
+                # Check for critical data (Sleep Score)
+                # Dynamic Logic: Check key instead of index
+                if data.get("Sleep Score") is None:
                     logger.warning(f"  - Missing Sleep Score for {date_str}. Skipping save.")
                     continue
                 

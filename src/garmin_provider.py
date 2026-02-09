@@ -141,57 +141,56 @@ class GarminProvider:
         
         # We need to extract these variables to outer scope.
         
-        return [
-            d_str,                                              # Date
-            is_worn,                                            # Worn?
-            stats.get("bodyBatteryMostRecentValue"),            # Body Battery
-            stats.get('bodyBatteryHighestValue'),               # BB High
-            stats.get('bodyBatteryLowestValue'),                # BB Low
-            "Yes" if is_today else "No",                        # Exercise (Yes/No)
-            last_act.get("activityType", {}).get("typeKey") if is_today else "None", # Type
-            hrv.get("hrvSummary", {}).get("lastNightAvg"),      # HRV
-            stats.get("restingHeartRate"),                      # RHR
-            stats.get("averageStressLevel"),                    # Stress
-            stats.get("avgWakingRespirationValue"),             # RespirationAvg
-            stats.get("avgOxygenSaturation"),                   # Pulse Ox (SpO2)
-            weight.get("totalWeight"),                          # Weight
-            fitness_age,                                        # Fitness Age
-            training_status,                                    # Training Status
-            sleep_dto.get("sleepScore") or sleep_dto.get("sleepScores", {}).get("overall", {}).get("value"), # Sleep Score
-            round((sleep_dto.get("sleepTimeSeconds") or 0)/3600, 2), # Duration (Hours)
-            sleep_dto.get("deepSleepSeconds"),                  # Deep
-            sleep_dto.get("lightSleepSeconds"),                 # Light
-            sleep_dto.get("remSleepSeconds"),                   # REM
-            sleep_dto.get("awakeSleepSeconds"),                 # Awake
+        return {
+            "Date": d_str,
+            "Worn?": is_worn,
+            "Body Battery": stats.get("bodyBatteryMostRecentValue"),
+            "BB High": stats.get('bodyBatteryHighestValue'),
+            "BB Low": stats.get('bodyBatteryLowestValue'),
+            "Exercise?": "Yes" if is_today else "No",
+            "Type": last_act.get("activityType", {}).get("typeKey") if is_today else "None",
+            "HRV (Last Night)": hrv.get("hrvSummary", {}).get("lastNightAvg"),
+            "Resting Heart Rate": stats.get("restingHeartRate"),
+            "Stress Avg": stats.get("averageStressLevel"),
+            "Respiration Avg": stats.get("avgWakingRespirationValue"),
+            "SpO2 Avg": stats.get("avgOxygenSaturation"),
+            "Weight": weight.get("totalWeight"),
+            "Fitness Age": fitness_age,
+            "Training Status": training_status,
+            "Sleep Score": sleep_dto.get("sleepScore") or sleep_dto.get("sleepScores", {}).get("overall", {}).get("value"),
+            "Sleep Hours": round((sleep_dto.get("sleepTimeSeconds") or 0)/3600, 2),
+            "Deep Sleep (s)": sleep_dto.get("deepSleepSeconds"),
+            "Light Sleep (s)": sleep_dto.get("lightSleepSeconds"),
+            "REM Sleep (s)": sleep_dto.get("remSleepSeconds"),
+            "Awake (s)": sleep_dto.get("awakeSleepSeconds"),
             
             # --- NEW METRICS SPLIT ---
-            total_steps,                                        # Steps
-            stats.get("totalDistanceMeters"),                   # Distance
-            stats.get("moderateIntensityMinutes"),              # Intensity Min (Mod)
-            stats.get("vigorousIntensityMinutes"),              # Intensity Min (Vig)
-            stats.get("activeKilocalories"),                    # Active Cals
-            stats.get("bmrKilocalories"),                       # BMR Cals
-            stats.get("totalKilocalories"),                     # Total Cals
+            "Steps": total_steps,
+            "Distance (m)": stats.get("totalDistanceMeters"),
+            "Intensity Min (Mod)": stats.get("moderateIntensityMinutes"),
+            "Intensity Min (Vig)": stats.get("vigorousIntensityMinutes"),
+            "Active Cals": stats.get("activeKilocalories"),
+            "BMR Cals": stats.get("bmrKilocalories"),
+            "Total Cals": stats.get("totalKilocalories"),
             
-            stats.get('bodyBatteryChargedValue'),               # BB Charge
-            stats.get('bodyBatteryDrainedValue'),               # BB Drain
+            "BB Charge": stats.get('bodyBatteryChargedValue'),
+            "BB Drain": stats.get('bodyBatteryDrainedValue'),
             
-            round((stats.get('lowStressDuration') or 0)/60),    # Stress Duration Low (Min)
-            round((stats.get('mediumStressDuration') or 0)/60), # Stress Duration Med (Min)
-            round((stats.get('highStressDuration') or 0)/60),   # Stress Duration High (Min)
+            "Stress Duration Low": round((stats.get('lowStressDuration') or 0)/60),
+            "Stress Duration Med": round((stats.get('mediumStressDuration') or 0)/60),
+            "Stress Duration High": round((stats.get('highStressDuration') or 0)/60),
             
-            sleep_start,                                        # Sleep Start
-            sleep_end,                                          # Sleep End
-            sleep_dto.get("restlessMomentsCount"),              # Restless Moments
-            sleep.get("hrvStatus"),                             # HRV Status
+            "Sleep Start": sleep_start,
+            "Sleep End": sleep_end,
+            "Restless Moments": sleep_dto.get("restlessMomentsCount"),
+            "HRV Status": sleep.get("hrvStatus"),
             
-            stats.get('highestRespirationValue'),               # Respiration High
-            stats.get('lowestRespirationValue'),                # Respiration Low
+            "Respiration High": stats.get('highestRespirationValue'),
+            "Respiration Low": stats.get('lowestRespirationValue'),
             
-            vo2_max,                                            # VO2 Max
+            "VO2 Max": vo2_max,
             
-            # Load Focus fields (need to ensure these are defined)
-            load_focus_vals['low'],                             # Load Low
-            load_focus_vals['high'],                            # Load High
-            load_focus_vals['anaerobic']                        # Load Anaerobic
-        ]
+            "Load Low": load_focus_vals['low'],
+            "Load High": load_focus_vals['high'],
+            "Load Anaerobic": load_focus_vals['anaerobic']
+        }

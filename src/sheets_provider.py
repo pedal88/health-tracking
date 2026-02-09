@@ -9,9 +9,13 @@ class SheetsProvider:
         self.sh = self.gc.open_by_key(sheet_id)
         self.wks = self.sh.get_worksheet(0)
 
-    def append_metrics(self, data_row: List[Any]):
-        # Define Headers
-        headers = [
+    def append_metrics(self, data_dict: Dict[str, Any]):
+        # 1. Fetch existing headers from the sheet (Row 1)
+        # We need to know the *actual* column order to place data correctly.
+        existing_headers = self.wks.row_values(1)
+
+        # Default headers if sheet is empty
+        default_headers = [
             "Date", "Worn?", "Body Battery", "BB High", "BB Low", "Exercise?", "Type", "HRV (Last Night)", 
             "Resting Heart Rate", "Stress Avg", "Respiration Avg", "SpO2 Avg", "Weight", 
             "Fitness Age", "Training Status", "Sleep Score", "Sleep Hours", "Deep Sleep (s)", 
@@ -23,30 +27,36 @@ class SheetsProvider:
             "Load Low", "Load High", "Load Anaerobic"
         ]
 
-        # 1. Inspect Row 1 to see if headers exist
-        try:
-            a1_val = self.wks.acell("A1").value
-        except:
-            a1_val = ""
-            
-        headers_written = False
-        if a1_val != "Date":
-            logging.info("Headers missing (A1 != 'Date'), writing headers to A1...")
-            self.wks.update("A1", [headers], value_input_option="USER_ENTERED")
-            headers_written = True
+        if not existing_headers:
+            logging.info("Sheet is empty, writing default headers...")
+            self.wks.update("A1", [default_headers], value_input_option="USER_ENTERED")
+            existing_headers = default_headers
         
-        # 2. Find next available row
+        # 2. Map data_dict to the sheet's column order
+        row_values = []
+        for header in existing_headers:
+            # Get value from dict, default to "" if header not found in our data
+            val = data_dict.get(header, "")
+            row_values.append(val)
+
+        # 3. Determine where to write
+        # We assume column A ("Date") is always populated for valid rows.
         col_a = self.wks.col_values(1)
-        # FORCE consistency: if we just wrote headers, we have at least 1 row.
-        # The API might be stale and return 0.
-        current_rows = len(col_a)
-        if headers_written and current_rows == 0:
-            logging.info("API stale after header write, forcing next_row=2")
-            next_row = 2
-        else:
-            next_row = current_rows + 1
         
-        # 3. Write data to the specific row range (e.g. "A5")
+        # Race condition handling:
+        # If we just wrote headers, lines might be stale.
+        # But since we wrote headers above manually if empty, we know we have at least 1 row.
+        
+        if not col_a: 
+             # Should be caught by "if not existing_headers" but just in case
+             next_row = 1 
+        else:
+             next_row = len(col_a) + 1
+             if next_row == 1 and existing_headers:
+                 next_row = 2 # Force pass headers if they exist
+        
+        # 4. Write Data
         range_start = f"A{next_row}"
-        logging.info(f"Appending data to {range_start} (Row len: {len(data_row)})...")
-        self.wks.update(range_start, [data_row], value_input_option="USER_ENTERED")
+        
+        logging.info(f"Appending data to {range_start} (Matched {len(row_values)} columns)...")
+        self.wks.update(range_start, [row_values], value_input_option="USER_ENTERED")
