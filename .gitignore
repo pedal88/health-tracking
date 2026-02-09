@@ -33,3 +33,5 @@ MANIFEST
 # OS
 .DS_Store
 service_account.json
+withings_app.json
+.withings_user.json
