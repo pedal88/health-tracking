@@ -15,7 +15,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 # --- CONFIGURATION ---
-START_DATE = date(2026, 2, 1)  # Modify this to your desired start date
+START_DATE = date(2024, 3, 1)  # Modify this to your desired start date
 END_DATE = date.today() - timedelta(days=1) # Yesterday
 # ---------------------
 
@@ -88,12 +88,11 @@ def main():
                 data = garmin.fetch_daily_row(current_date)
                 
                 # Check for critical data (Sleep Score)
-                # Index 13 is Sleep Score based on the provider list structure
-                if data[13] is None:
-                    logger.warning(f"  - Missing Sleep Score for {date_str}. Skipping save (or logging partially).")
-                    # Option: Continue anyway? Or skip? 
-                    # For backfill, we might want to skip mostly empty rows, or save what we have.
-                    # Let's save what we have but log a warning.
+                # New Index: 15 is Sleep Score based on the provider list structure
+                # [Date, Worn, BB, BBH, BBL, Ex, Type, HRV, RHR, Stress, Resp, SpO2, Wgt, FA, TS, SS, ...]
+                if data[15] is None:
+                    logger.warning(f"  - Missing Sleep Score for {date_str}. Skipping save.")
+                    continue
                 
                 # 2. Append to Sheets
                 # Use the provider wrapper to handle headers and correct row placement

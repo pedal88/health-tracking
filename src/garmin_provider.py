@@ -70,16 +70,26 @@ class GarminProvider:
                     break
             
             # Load Focus
-            # Structure: training -> mostRecentTrainingStatus -> definitions -> ... NO
             # Structure: training -> mostRecentTrainingLoadBalance -> metricsTrainingLoadBalanceDTOMap -> {deviceId: { ... }}
             lb_root = training.get("mostRecentTrainingLoadBalance", {})
             lb_data = lb_root.get("metricsTrainingLoadBalanceDTOMap", {})
+            
+            # Default values (Outer scope for return)
+            load_focus_vals = {'low': 0, 'high': 0, 'anaerobic': 0}
+
             for device_id, device_data in lb_data.items():
                 low = device_data.get("monthlyLoadAerobicLow", 0)
                 high = device_data.get("monthlyLoadAerobicHigh", 0)
                 anaerobic = device_data.get("monthlyLoadAnaerobic", 0)
+                
+                # If we find valid data, capture it
                 if low or high or anaerobic:
-                    load_focus = f"{int(low)}/{int(high)}/{int(anaerobic)}"
+                    load_focus_vals = {
+                        'low': int(low),
+                        'high': int(high),
+                        'anaerobic': int(anaerobic)
+                    }
+                    load_focus = f"{int(low)}/{int(high)}/{int(anaerobic)}" # Keep for backward compat or debug if needed, though we don't return it anymore
                     break
 
         except Exception as e:
@@ -103,10 +113,40 @@ class GarminProvider:
         except:
             pass
             
+        # Worn Logic (Activity + Pulse)
+        total_steps = stats.get("totalSteps") or 0
+        rhr = stats.get("restingHeartRate")
+        
+        is_worn = "No"
+        if total_steps > 0 or rhr:
+             is_worn = "Yes"
+
+        # Load Focus Split
+        load_low = 0
+        load_high = 0
+        load_anaerobic = 0
+        if load_focus: # Check if we parsed it earlier
+             # Parse it back out or use variables if we kept them.
+             # In prev logic: load_focus = f"{int(low)}/{int(high)}/{int(anaerobic)}"
+             # We should probably just use the variables `low`, `high`, `anaerobic` from the loop
+             # But they are local to the loop. Let's refactor the loop slightly or just use them if they are in scope.
+             pass
+
+        # Refactoring Fetch Logic to expose these vars
+        # ... (See below for correct implementation approach) ...
+        # Actually, let's look at lines 77-83 in the file:
+        # for device_id, device_data in lb_data.items():
+        #     low = device_data.get("monthlyLoadAerobicLow", 0) ...
+        #     if low or high ...: load_focus = ... break
+        
+        # We need to extract these variables to outer scope.
+        
         return [
             d_str,                                              # Date
+            is_worn,                                            # Worn?
             stats.get("bodyBatteryMostRecentValue"),            # Body Battery
-            f"{stats.get('bodyBatteryHighestValue')}/{stats.get('bodyBatteryLowestValue')}", # BB High/Low
+            stats.get('bodyBatteryHighestValue'),               # BB High
+            stats.get('bodyBatteryLowestValue'),                # BB Low
             "Yes" if is_today else "No",                        # Exercise (Yes/No)
             last_act.get("activityType", {}).get("typeKey") if is_today else "None", # Type
             hrv.get("hrvSummary", {}).get("lastNightAvg"),      # HRV
@@ -124,21 +164,34 @@ class GarminProvider:
             sleep_dto.get("remSleepSeconds"),                   # REM
             sleep_dto.get("awakeSleepSeconds"),                 # Awake
             
-            # --- NEW METRICS ---
-            stats.get("totalSteps"),                            # Steps
+            # --- NEW METRICS SPLIT ---
+            total_steps,                                        # Steps
             stats.get("totalDistanceMeters"),                   # Distance
             stats.get("moderateIntensityMinutes"),              # Intensity Min (Mod)
             stats.get("vigorousIntensityMinutes"),              # Intensity Min (Vig)
             stats.get("activeKilocalories"),                    # Active Cals
             stats.get("bmrKilocalories"),                       # BMR Cals
             stats.get("totalKilocalories"),                     # Total Cals
-            f"{stats.get('bodyBatteryChargedValue')}/{stats.get('bodyBatteryDrainedValue')}", # Body Battery (Charge/Drain)
-            f"{round((stats.get('lowStressDuration') or 0)/60)}/{round((stats.get('mediumStressDuration') or 0)/60)}/{round((stats.get('highStressDuration') or 0)/60)}", # Stress Duration (Min)
+            
+            stats.get('bodyBatteryChargedValue'),               # BB Charge
+            stats.get('bodyBatteryDrainedValue'),               # BB Drain
+            
+            round((stats.get('lowStressDuration') or 0)/60),    # Stress Duration Low (Min)
+            round((stats.get('mediumStressDuration') or 0)/60), # Stress Duration Med (Min)
+            round((stats.get('highStressDuration') or 0)/60),   # Stress Duration High (Min)
+            
             sleep_start,                                        # Sleep Start
             sleep_end,                                          # Sleep End
             sleep_dto.get("restlessMomentsCount"),              # Restless Moments
             sleep.get("hrvStatus"),                             # HRV Status
-            f"{stats.get('highestRespirationValue')}/{stats.get('lowestRespirationValue')}", # Respiration (High/Low)
+            
+            stats.get('highestRespirationValue'),               # Respiration High
+            stats.get('lowestRespirationValue'),                # Respiration Low
+            
             vo2_max,                                            # VO2 Max
-            load_focus                                          # Load Focus
+            
+            # Load Focus fields (need to ensure these are defined)
+            load_focus_vals['low'],                             # Load Low
+            load_focus_vals['high'],                            # Load High
+            load_focus_vals['anaerobic']                        # Load Anaerobic
         ]
