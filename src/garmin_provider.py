@@ -20,6 +20,7 @@ class GarminProvider:
         training = self.client.get_training_status(d_str)
         weight = self.client.get_body_composition(d_str)
         activities = self.client.get_activities(0, 1) # Get most recent
+
         
         # Advanced Metrics
         readiness_list = None
@@ -62,10 +63,12 @@ class GarminProvider:
         except Exception as e:
             logger.debug(f"Failed to fetch fitness age: {e}")
 
+
         # 2. Get Training Status & Load Focus (Deep Parse)
         training_status = None
         vo2_max = None
         load_focus = None
+        load_focus_vals = {'low': 0, 'high': 0, 'anaerobic': 0}
         
         try:
             # Training Status & VO2 Max
@@ -86,9 +89,6 @@ class GarminProvider:
             # Structure: training -> mostRecentTrainingLoadBalance -> metricsTrainingLoadBalanceDTOMap -> {deviceId: { ... }}
             lb_root = training.get("mostRecentTrainingLoadBalance", {})
             lb_data = lb_root.get("metricsTrainingLoadBalanceDTOMap", {})
-            
-            # Default values (Outer scope for return)
-            load_focus_vals = {'low': 0, 'high': 0, 'anaerobic': 0}
 
             for device_id, device_data in lb_data.items():
                 low = device_data.get("monthlyLoadAerobicLow", 0)
@@ -102,7 +102,8 @@ class GarminProvider:
                         'high': int(high),
                         'anaerobic': int(anaerobic)
                     }
-                    load_focus = f"{int(low)}/{int(high)}/{int(anaerobic)}" # Keep for backward compat or debug if needed, though we don't return it anymore
+                    # load_focus kept for backward compatibility if needed
+                    load_focus = f"{int(low)}/{int(high)}/{int(anaerobic)}" 
                     break
 
         except Exception as e:
@@ -134,25 +135,6 @@ class GarminProvider:
         if total_steps > 0 or rhr:
              is_worn = "Yes"
 
-        # Load Focus Split
-        load_low = 0
-        load_high = 0
-        load_anaerobic = 0
-        if load_focus: # Check if we parsed it earlier
-             # Parse it back out or use variables if we kept them.
-             # In prev logic: load_focus = f"{int(low)}/{int(high)}/{int(anaerobic)}"
-             # We should probably just use the variables `low`, `high`, `anaerobic` from the loop
-             # But they are local to the loop. Let's refactor the loop slightly or just use them if they are in scope.
-             pass
-
-        # Refactoring Fetch Logic to expose these vars
-        # ... (See below for correct implementation approach) ...
-        # Actually, let's look at lines 77-83 in the file:
-        # for device_id, device_data in lb_data.items():
-        #     low = device_data.get("monthlyLoadAerobicLow", 0) ...
-        #     if low or high ...: load_focus = ... break
-        
-        # We need to extract these variables to outer scope.
         
         # --- EXTRACT ADVANCED METRICS ---
         
@@ -176,8 +158,8 @@ class GarminProvider:
         acute_load = None
         if training:
             # mostRecentTrainingStatus -> latestTrainingStatusData -> {deviceId} -> acuteTrainingLoadDTO -> dailyTrainingLoadAcute
-            ts_root = training.get("mostRecentTrainingStatus", {})
-            ts_items = ts_root.get("latestTrainingStatusData", {})
+            ts_root = training.get("mostRecentTrainingStatus") or {}
+            ts_items = ts_root.get("latestTrainingStatusData") or {}
             for _, dev_data in ts_items.items():
                 load_dto = dev_data.get("acuteTrainingLoadDTO")
                 if load_dto:
@@ -203,21 +185,25 @@ class GarminProvider:
             "BB High": stats.get('bodyBatteryHighestValue'),
             "BB Low": stats.get('bodyBatteryLowestValue'),
             "Exercise?": "Yes" if is_today else "No",
-            "Type": last_act.get("activityType", {}).get("typeKey") if is_today else "None",
-            "HRV (Last Night)": hrv.get("hrvSummary", {}).get("lastNightAvg"),
+            "Type": (last_act.get("activityType") or {}).get("typeKey") if is_today else "None",
+            "HRV (Last Night)": (hrv.get("hrvSummary") or {}).get("lastNightAvg"),
             "Resting Heart Rate": stats.get("restingHeartRate"),
             "Stress Avg": stats.get("averageStressLevel"),
             "Respiration Avg": stats.get("avgWakingRespirationValue"),
             "SpO2 Avg": stats.get("avgOxygenSaturation"),
-            "Weight": weight.get("totalWeight"),
+            "Weight": round(((weight.get("totalAverage") or {}).get("weight") or 0) / 1000, 2) if (weight.get("totalAverage") or {}).get("weight") else None,
+            "Body Fat": (weight.get("totalAverage") or {}).get("bodyFat"),
+            "Muscle Mass": round(((weight.get("totalAverage") or {}).get("muscleMass") or 0) / 1000, 2) if (weight.get("totalAverage") or {}).get("muscleMass") else None,
+            "Bone Mass": round(((weight.get("totalAverage") or {}).get("boneMass") or 0) / 1000, 2) if (weight.get("totalAverage") or {}).get("boneMass") else None,
+            "Water %": (weight.get("totalAverage") or {}).get("bodyWater"), 
             "Fitness Age": fitness_age,
             "Training Status": training_status,
-            "Sleep Score": sleep_dto.get("sleepScore") or sleep_dto.get("sleepScores", {}).get("overall", {}).get("value"),
-            "Sleep Hours": round((sleep_dto.get("sleepTimeSeconds") or 0)/3600, 2),
-            "Deep Sleep (s)": sleep_dto.get("deepSleepSeconds"),
-            "Light Sleep (s)": sleep_dto.get("lightSleepSeconds"),
-            "REM Sleep (s)": sleep_dto.get("remSleepSeconds"),
-            "Awake (s)": sleep_dto.get("awakeSleepSeconds"),
+            "Sleep Score": (sleep_dto.get("sleepScore") if sleep_dto else None) or ((sleep_dto.get("sleepScores") or {}) if sleep_dto else {}).get("overall", {}).get("value"),
+            "Sleep Hours": round(((sleep_dto.get("sleepTimeSeconds") or 0) / 3600), 2) if sleep_dto else 0,
+            "Deep Sleep (s)": sleep_dto.get("deepSleepSeconds") if sleep_dto else None,
+            "Light Sleep (s)": sleep_dto.get("lightSleepSeconds") if sleep_dto else None,
+            "REM Sleep (s)": sleep_dto.get("remSleepSeconds") if sleep_dto else None,
+            "Awake (s)": sleep_dto.get("awakeSleepSeconds") if sleep_dto else None,
             
             # --- NEW METRICS SPLIT ---
             "Steps": total_steps,
@@ -256,5 +242,5 @@ class GarminProvider:
             "Recovery Hours": recovery_time_hours,
             "HRV Weekly": hrv_weekly,
             "HRV Status (Text)": hrv_status_text,
-            "Skin Temp Dev": skin_temp_dev
+            "Skin Temp Dev": sleep_dto.get("avgOvernightTemperatureDeviation") if sleep_dto else None
         }

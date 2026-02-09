@@ -15,8 +15,8 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 # --- CONFIGURATION ---
-START_DATE = date(2024, 3, 1)  # Modify this to your desired start date
-END_DATE = date.today() - timedelta(days=1) # Yesterday
+START_DATE = date(2024, 3, 20)  # Modify this to your desired start date
+END_DATE = date.today() # Include today
 # ---------------------
 
 def get_credentials():
@@ -53,6 +53,54 @@ def date_range(start_date, end_date):
     for n in range(int((end_date - start_date).days) + 1):
         yield start_date + timedelta(n)
 
+# ... imports ...
+import csv
+
+# ... existing code ...
+
+def load_historical_weights(csv_path):
+    """
+    Parses historical_weight.csv.
+    Expected format: "Habit - Date", "Habit Catalog", "Date", "Value"
+    Date format: "February 9, 2026"
+    Value format: "88,5" or "88.5" or "88"
+    """
+    weights = {} # { date_obj: float }
+    if not os.path.exists(csv_path):
+        logger.warning(f"CSV file not found: {csv_path}")
+        return weights
+
+    logger.info(f"Loading historical weights from {csv_path}...")
+    try:
+        with open(csv_path, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            # Check for header issues if needed, but assuming standard format
+            for row in reader:
+                date_str = row.get("Date")
+                val_str = row.get("Value")
+                
+                if not date_str or not val_str or val_str.strip() == "-" or not val_str.strip():
+                    continue
+
+                try:
+                    # Parse Date: "February 9, 2026"
+                    # Remove quotes if present explicitly in string (csv reader usually handles quotes)
+                    dt = datetime.strptime(date_str.strip(), "%B %d, %Y").date()
+                    
+                    # Parse Weight: "88,5" -> 88.5
+                    val_clean = val_str.replace(",", ".").strip()
+                    weight = float(val_clean)
+                    
+                    weights[dt] = weight
+                except ValueError as ve:
+                    # logger.debug(f"Skipping row {row}: {ve}")
+                    pass
+    except Exception as e:
+        logger.error(f"Failed to parse history file: {e}")
+        
+    logger.info(f"Loaded {len(weights)} historical weight entries.")
+    return weights
+
 def main():
     try:
         creds = get_credentials()
@@ -64,11 +112,19 @@ def main():
         # Initialize Providers
         garmin = GarminProvider(creds["garmin_email"], creds["garmin_password"])
         sheets = SheetsProvider(creds["sheet_id"], creds["google_creds"])
+        
+        # Load Historical Weights
+        csv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "historical_weight.csv")
+        history_weights = load_historical_weights(csv_path)
 
         # Fetch existing dates to prevent duplicates
         existing_dates = set(sheets.wks.col_values(1))
+        # Note: If we need to Backfill CSV data for DATES THAT EXIST but have no weight, 
+        # checking "existing_dates" strictly might prevent updating. 
+        # But usually 'append_metrics' just adds rows. Updating existing rows is harder (requires finding row).
+        # For now, we assume we are filling holes (missing dates).
+        
         logger.info(f"Found {len(existing_dates)} existing entries in sheet.")
-
         logger.info(f"Starting backfill from {START_DATE} to {END_DATE}")
 
         # Iterate
@@ -85,30 +141,49 @@ def main():
 
             try:
                 # 1. Fetch from Garmin
-                data = garmin.fetch_daily_row(current_date)
+                # We try to fetch regardless, to get Sleep/Activities.
+                # If Garmin fails, we handle it.
+                data = {}
+                try:
+                    data = garmin.fetch_daily_row(current_date)
+                except Exception as e:
+                    logger.warning(f"  - Garmin fetch failed for {date_str}: {e}")
+                    # If Garmin fails, we initialize a basic dict so we can potentially fill with CSV weight
+                    data = {"Date": date_str, "Worn?": "No", "Exercise?": "No"}
+
+                # 2. Apply CSV Override
+                # If we have a weight in CSV, use it.
+                csv_weight = history_weights.get(current_date)
+                if csv_weight is not None:
+                    logger.info(f"  - Found historical weight for {current_date}: {csv_weight}kg")
+                    data["Weight"] = csv_weight
+                else:
+                    # logger.debug(f"  - No historical weight for {current_date} (Available: {list(history_weights.keys())[:3]}...)")
+                    pass
+                    # If we had no Garmin data, ensure keys exist to prevent Sheets errors (if strictly mapping)
+                    # SheetsProvider maps by keys, so missing keys usually just leave cells blank.
                 
-                # Check for critical data (Sleep Score)
-                # Check for critical data (Sleep Score)
-                # Dynamic Logic: Check key instead of index
-                if data.get("Sleep Score") is None:
-                    logger.warning(f"  - Missing Sleep Score for {date_str}. Skipping save.")
+                # 3. Check Validity
+                # Criteria: Must have Sleep Score OR Valid Weight
+                has_sleep = data.get("Sleep Score") is not None
+                has_weight = data.get("Weight") is not None
+                
+                if not has_sleep and not has_weight:
+                    logger.warning(f"  - No Sleep Score AND No Weight for {date_str}. Skipping save.")
                     continue
                 
-                # 2. Append to Sheets
-                # Use the provider wrapper to handle headers and correct row placement
+                # 4. Append to Sheets
                 sheets.append_metrics(data)
-                # Note: logging is handled inside append_metrics for data placement, 
-                # but we keep this summary log.
                 logger.info(f"  - Successfully synced {date_str}")
 
-                # 3. Rate Limiting / Politeness
-                sleep_time = random.uniform(2.0, 5.0)
-                logger.info(f"  - Sleeping {sleep_time:.2f}s...")
+                # 5. Rate Limiting / Politeness
+                # Only sleep if we actually hit Garmin successfully to avoid spamming if loop is fast on just CSV
+                # But safer to always sleep a little.
+                sleep_time = random.uniform(1.0, 3.0) 
                 time.sleep(sleep_time)
 
             except Exception as e:
-                logger.error(f"  - Failed to process {date_str}: {e}")
-                # Continue to next date
+                logger.error(f"  - Failed to process {date_str}: {e}", exc_info=True)
                 continue
 
         logger.info("Backfill complete!")

@@ -17,6 +17,20 @@ jobs:
       - name: Install
         run: pip install -r requirements.txt
 
+      - name: Sync Withings to Garmin
+        run: |
+          # Create config files from secrets
+          echo '${{ secrets.WITHINGS_APP_JSON }}' > withings_app.json
+          echo '${{ secrets.WITHINGS_USER_JSON }}' > .withings_user.json
+          
+          # Run sync with explicit config paths
+          export WITHINGS_APP=$(pwd)/withings_app.json
+          export WITHINGS_USER=$(pwd)/.withings_user.json
+          
+          withings-sync --garmin-username ${{ secrets.GARMIN_EMAIL }} \
+                        --garmin-password ${{ secrets.GARMIN_PASSWORD }}
+        continue-on-error: true # Don't fail the whole pipeline if just the scale sync fails
+
       - name: Sync with 1-hour retry
         uses: nick-fields/retry@v3
         with:

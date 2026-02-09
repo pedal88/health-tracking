@@ -1,0 +1,5 @@
+{
+    "client_id": "4838c549ae59c2d90db92e2a36ba44217e8e6a2c7a582ef50c41b53472d42752",
+    "consumer_secret": "bcbf9915d75c491c14292504a3daad58ef5a1d156d0c8452b8be7db9ffc4e3c2",
+    "callback_url": "https://jaroslawhartman.github.io/withings-sync/contrib/withings.html"
+}
