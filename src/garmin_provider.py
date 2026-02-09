@@ -20,6 +20,19 @@ class GarminProvider:
         training = self.client.get_training_status(d_str)
         weight = self.client.get_body_composition(d_str)
         activities = self.client.get_activities(0, 1) # Get most recent
+        
+        # Advanced Metrics
+        readiness_list = None
+        try:
+            readiness_list = self.client.get_training_readiness(d_str)
+        except Exception:
+            pass
+            
+        hrv_data = None
+        try:
+            hrv_data = self.client.get_hrv_data(d_str)
+        except Exception:
+            pass
 
         if not stats:
             stats = {}
@@ -141,6 +154,48 @@ class GarminProvider:
         
         # We need to extract these variables to outer scope.
         
+        # --- EXTRACT ADVANCED METRICS ---
+        
+        # 1. Readiness & Recovery
+        readiness_score = None
+        readiness_feedback = None
+        recovery_time_hours = None
+        
+        if readiness_list and isinstance(readiness_list, list):
+            # Index 0 is usually the latest
+            latest = readiness_list[0]
+            readiness_score = latest.get("score")
+            readiness_feedback = latest.get("feedbackShort") # "PRIME_TO_TRAIN"
+            
+            # Recovery time is in minutes in readiness response
+            # e.g. 2161 mins = 36 hours
+            if latest.get("recoveryTime") is not None:
+                recovery_time_hours = round(latest.get("recoveryTime") / 60, 1)
+        
+        # 2. Acute Load
+        acute_load = None
+        if training:
+            # mostRecentTrainingStatus -> latestTrainingStatusData -> {deviceId} -> acuteTrainingLoadDTO -> dailyTrainingLoadAcute
+            ts_root = training.get("mostRecentTrainingStatus", {})
+            ts_items = ts_root.get("latestTrainingStatusData", {})
+            for _, dev_data in ts_items.items():
+                load_dto = dev_data.get("acuteTrainingLoadDTO")
+                if load_dto:
+                    acute_load = load_dto.get("dailyTrainingLoadAcute")
+                    break
+                    
+        # 3. HRV Details
+        hrv_weekly = None
+        hrv_status_text = None
+        if hrv_data:
+            summary = hrv_data.get("hrvSummary") or {}
+            hrv_weekly = summary.get("weeklyAvg")
+            hrv_status_text = summary.get("status") # "BALANCED"
+            
+        # 4. Skin Temp
+        # dailySleepDTO -> avgOvernightTemperatureDeviation
+        skin_temp_dev = sleep_dto.get("avgOvernightTemperatureDeviation")
+        
         return {
             "Date": d_str,
             "Worn?": is_worn,
@@ -192,5 +247,14 @@ class GarminProvider:
             
             "Load Low": load_focus_vals['low'],
             "Load High": load_focus_vals['high'],
-            "Load Anaerobic": load_focus_vals['anaerobic']
+            "Load Anaerobic": load_focus_vals['anaerobic'],
+            
+            # --- ADVANCED METRICS ---
+            "Readiness Score": readiness_score,
+            "Readiness Status": readiness_feedback,
+            "Acute Load": acute_load,
+            "Recovery Hours": recovery_time_hours,
+            "HRV Weekly": hrv_weekly,
+            "HRV Status (Text)": hrv_status_text,
+            "Skin Temp Dev": skin_temp_dev
         }

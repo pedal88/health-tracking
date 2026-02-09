@@ -24,7 +24,9 @@ class SheetsProvider:
             "BB Charge", "BB Drain", "Stress Duration Low", "Stress Duration Med", 
             "Stress Duration High", "Sleep Start", "Sleep End", "Restless Moments", "HRV Status", 
             "Respiration High", "Respiration Low", "VO2 Max",
-            "Load Low", "Load High", "Load Anaerobic"
+            "Load Low", "Load High", "Load Anaerobic",
+            "Readiness Score", "Readiness Status", "Acute Load", "Recovery Hours",
+            "HRV Weekly", "HRV Status (Text)", "Skin Temp Dev"
         ]
 
         if not existing_headers:
