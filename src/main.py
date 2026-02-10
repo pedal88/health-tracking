@@ -52,10 +52,7 @@ def main():
         row = garmin.fetch_daily_row(today)
 
         # Logic: If Sleep Score (index 13) is missing, the watch hasn't synced yet.
-        # Index 13 logic:
-        # 0: date, 1: BB, 2: BB H/L, 3: Exercise, 4: Type, 5: HRV, 6: RHR, 7: Stress, 
-        # 8: Resp, 9: SpO2, 10: Weight, 11: FitAge, 12: TrainingStatus, 13: SleepScore
-        if row[13] is None:
+        if row.get("Sleep Score") is None:
             logger.warning("Metric Sync Incomplete: Sleep Score missing. Exiting for retry...")
             sys.exit(1)
 
