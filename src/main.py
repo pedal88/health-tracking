@@ -75,8 +75,8 @@ def main():
             if has_csv_weight:
                  logger.warning("Sleep Score missing, but CSV weight found. Proceeding with sync.")
             else:
-                 logger.warning("Metric Sync Incomplete: Sleep Score missing. Exiting for retry...")
-                 sys.exit(1)
+                 logger.warning("Sleep Score missing. Proceeding with sync (might be incomplete).")
+                 # sys.exit(1) # Removed to allow partial data sync
 
         sheets.append_metrics(row)
         logger.info("Successfully appended data to Google Sheets.")
