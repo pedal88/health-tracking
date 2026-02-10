@@ -93,20 +93,33 @@ class SheetsProvider:
         # We assume column A ("Date") is always populated for valid rows.
         col_a = self.wks.col_values(1)
         
-        # Race condition handling:
-        # If we just wrote headers, lines might be stale.
-        # But since we wrote headers above manually if empty, we know we have at least 1 row.
+        target_date = data_dict.get("Date")
+        row_idx_to_update = None
         
-        if not col_a: 
-             # Should be caught by "if not existing_headers" but just in case
-             next_row = 1 
+        if target_date:
+            try:
+                # 1-based index in list matches 1-based row in sheet? 
+                # gspread list is 0-indexed. Sheet rows are 1-indexed.
+                # If date is at index 0 (header), row is 1.
+                # If date is at index 1, row is 2.
+                idx = col_a.index(target_date)
+                row_idx_to_update = idx + 1
+                logging.info(f"Date {target_date} found at row {row_idx_to_update}. Updating...")
+            except ValueError:
+                pass
+        
+        if row_idx_to_update:
+             range_start = f"A{row_idx_to_update}"
         else:
-             next_row = len(col_a) + 1
-             if next_row == 1 and existing_headers:
-                 next_row = 2 # Force pass headers if they exist
-        
+             # Append logic
+             if not col_a: 
+                  next_row = 1 
+             else:
+                  next_row = len(col_a) + 1
+                  if next_row == 1 and existing_headers:
+                      next_row = 2 
+             range_start = f"A{next_row}"
+             logging.info(f"Date {target_date} not found. Appending to {range_start}...")
+
         # 4. Write Data
-        range_start = f"A{next_row}"
-        
-        logging.info(f"Appending data to {range_start} (Matched {len(row_values)} columns)...")
         self.wks.update(range_start, [row_values], value_input_option="USER_ENTERED")
