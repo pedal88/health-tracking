@@ -65,21 +65,25 @@ def main():
         except Exception as e:
             logger.warning(f"Failed to load historical weights: {e}")
 
-        # Logic: If Sleep Score is missing, we usually exit(1) to retry later.
-        # NEW LOGIC: If we have a valid Weight from CSV, we allow the sync to proceed.
+        # 3. Always UPSERT data first (Save what we have: Steps, Weight, etc.)
+        sheets.append_metrics(row)
+        logger.info("Successfully synced available data to Google Sheets.")
+
+        # 4. Check for Completeness (Sleep Score)
+        # If Sleep Score is missing, we consider it "Incomplete" and want to retry.
+        # But since we already saved partial data (e.g. weight from CSV), the data is safe.
+        # We exit(1) to trigger the workflow retry mechanism so we can get Sleep data later.
         
         has_sleep = row.get("Sleep Score") is not None
         has_csv_weight = (history_weights.get(today) is not None) if 'history_weights' in locals() else False
         
         if not has_sleep:
             if has_csv_weight:
-                 logger.warning("Sleep Score missing, but CSV weight found. Proceeding with sync.")
+                 logger.warning("Sleep Score missing, but CSV weight was saved. Exiting for retry to capture sleep later.")
+                 sys.exit(1) 
             else:
-                 logger.warning("Sleep Score missing. Proceeding with sync (might be incomplete).")
-                 # sys.exit(1) # Removed to allow partial data sync
-
-        sheets.append_metrics(row)
-        logger.info("Successfully appended data to Google Sheets.")
+                 logger.warning("Sleep Score missing. Data likely incomplete. Exiting for retry.")
+                 sys.exit(1)
 
     except Exception as e:
         logger.error(f"Pipeline Error: {e}", exc_info=True)
