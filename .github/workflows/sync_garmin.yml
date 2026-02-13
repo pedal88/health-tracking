@@ -2,7 +2,7 @@ name: Garmin Health Sync
 
 on:
   schedule:
-    - cron: '0 5 * * *' # 05:00 UTC (06:00 CET / 07:00 CEST)
+    - cron: '0 5,9,13,18,22 * * *' # Run 5 times a day to catch late syncs
   workflow_dispatch:
 
 jobs:
@@ -43,3 +43,4 @@ jobs:
           GARMIN_PASSWORD: ${{ secrets.GARMIN_PASSWORD }}
           GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        continue-on-error: true # Allow job to pass even if retries fail (partial data is saved)
